@@ -8,8 +8,8 @@ const starturl='https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Tr
 //         tractdata = data
 //         })
 
-function createGISquery (extent) {
-  return 'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Tracts_Blocks/MapServer/7/query?text=&geometry={%22xmin%22:'+ extent["_southWest"]["lng"]+',%22ymin%22:'+extent["_southWest"]["lat"]+',%22xmax%22:'+extent["_northEast"]["lng"]+',%22ymax%22:'+extent["_northEast"]["lat"]+',spatialReference:{wkid:4326}}'+'&geometryType=esriGeometryEnvelope&spatialRel=esriSpatialRelIntersects&returnGeometry=true&geometryPrecision=5&outFields=STATE,COUNTY,TRACT,GEOID&outSR=4269&f=geojson'
+function createGISquery (extent, count='false') {
+  return 'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Tracts_Blocks/MapServer/7/query?text=&geometry={%22xmin%22:'+ extent["_southWest"]["lng"]+',%22ymin%22:'+extent["_southWest"]["lat"]+',%22xmax%22:'+extent["_northEast"]["lng"]+',%22ymax%22:'+extent["_northEast"]["lat"]+',spatialReference:{wkid:4326}}'+'&geometryType=esriGeometryEnvelope&spatialRel=esriSpatialRelIntersects&returnGeometry=true&geometryPrecision=5&outFields=STATE,COUNTY,TRACT,GEOID&outSR=4269&f=geojson&returnCountOnly='+count;
 
 }
 
@@ -40,6 +40,7 @@ function updateTracts (newData) {
   var keepList = [];
   // var newItems = [];
   var arrayLength = newData["features"].length;
+  console.log("Starting update");
   for (var i = 0; i < arrayLength; i++) {
     if (myFeaturesMap.hasOwnProperty(newData["features"][i]["properties"]["GEOID"])) {
       keepList.push(newData["features"][i]["properties"]["GEOID"]);
@@ -50,9 +51,27 @@ function updateTracts (newData) {
       addNewFeatureToGeoJsonLayerGroup(newData["features"][i]);
     }
   }
+  console.log("Finished update");
 }
 
-function loadBlockGroups (url) {
+function processBlockGroups(data) {
+    //tractdata = data
+    console.log('loaded '+data["features"].length+' tracts');
+    if (typeof overlay !== 'undefined') {
+        //console.log('already defined');
+        updateTracts(data);
+    } else {
+      console.log('setup');
+      overlay = L.geoJson(data, {
+        onEachFeature: function (feature, layer) {
+            myFeaturesMap[feature.properties.GEOID] = layer;
+          }
+        }); 
+      map.addLayer(overlay);
+    }
+}
+
+function loadJSON (url, action='download') {
   var request = new XMLHttpRequest();
 
   request.open('GET', url, true);
@@ -60,21 +79,21 @@ function loadBlockGroups (url) {
 
     // Begin accessing JSON data here
     var data = JSON.parse(this.response);
-
+    
+    console.log(data)
+    
     if (request.status >= 200 && request.status < 400) {
-      tractdata = data
-      console.log('loaded '+data["features"].length+' tracts');
-      if (typeof overlay !== 'undefined') {
-          console.log('already defined');
-          updateTracts(data);
-      } else {
-        console.log('setup');
-        overlay = L.geoJson(data, {
-          onEachFeature: function (feature, layer) {
-              myFeaturesMap[feature.properties.GEOID] = layer;
-            }
-          }); 
-        map.addLayer(overlay);
+      switch (action) {
+        case 'download':
+          processBlockGroups(data);
+          break;
+        case 'count':
+          if (data["count"] < 500) {
+            loadJSON( url.replace('&returnCountOnly=true', '&returnCountOnly=false'), 'download');
+          } else {
+            console.log('Too many blockgroups!');
+          }
+          break;
       }
     } else {
       console.log('error');
@@ -84,6 +103,10 @@ function loadBlockGroups (url) {
   request.send();
 }
 
+function loadBlockGroups (bounds) {
+  loadJSON( createGISquery(bounds, 'true'), 'count');
+}
+
 function mapInit () {
-  loadBlockGroups(starturl);
+  loadJSON(starturl, 'download');
 }
