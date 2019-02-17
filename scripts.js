@@ -30,9 +30,10 @@ function addNewFeatureToGeoJsonLayerGroup(newGeoJsonData) {
 //     addNewFeatureToGeoJsonLayerGroup(updatedGeoJsonData); // Replace it by the new data.
 // }
 
-function deleteFeature(deletedGeoJsonData) {
-    var deletedFeature = myFeaturesMap[deletedGeoJsonData.properties.objectID];
+function deleteFeature(keyToDelete) {
+    var deletedFeature = myFeaturesMap[keyToDelete];
     overlay.removeLayer(deletedFeature);
+    delete myFeaturesMap[keyToDelete];
 }
 
 
@@ -48,14 +49,22 @@ function updateTracts (newData) {
       i--;
       arrayLength--;
     } else {
+      keepList.push(newData["features"][i]["properties"]["GEOID"]);
       addNewFeatureToGeoJsonLayerGroup(newData["features"][i]);
     }
   }
+  for (var key in myFeaturesMap) {
+    if (!keepList.includes(key)){
+      //console.log(key);
+      deleteFeature(key)
+    }
+  }
+  //console.log(keepList);
   console.log("Finished update");
 }
 
 function processBlockGroups(data) {
-    //tractdata = data
+    tractdata = data
     console.log('loaded '+data["features"].length+' tracts');
     if (typeof overlay !== 'undefined') {
         //console.log('already defined');
@@ -80,7 +89,7 @@ function loadJSON (url, action='download') {
     // Begin accessing JSON data here
     var data = JSON.parse(this.response);
     
-    console.log(data)
+    //console.log(data)
     
     if (request.status >= 200 && request.status < 400) {
       switch (action) {
