@@ -1,4 +1,4 @@
-var tractdata = 0;
+var tractdata = null;
 
 const starturl='https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Tracts_Blocks/MapServer/7/query?text=&geometry={x:-122.259233,y:37.849112,spatialReference:{wkid:4326}}&geometryType=esriGeometryPoint&spatialRel=esriSpatialRelIntersects&returnGeometry=true&geometryPrecision=7&outFields=STATE,COUNTY,TRACT,GEOID&outSR=4269&f=geojson';
 
@@ -9,6 +9,34 @@ function createGISquery (extent, count='false') {
 }
 
 var myFeaturesMap = {};
+var currentRequest = 0;
+
+/*
+onEachFeature: function (feature, layer) {
+    myFeaturesMap[feature.properties.GEOID] = layer;
+  }
+          
+  //Updates the popup whenever a block group is clicked - not used
+function whenClicked(e) {
+    e.target.bindPopup(
+      '<b>Suitability: </b>' + e.target.feature.weightedValue.toFixed(2) + '<br />'
+      // http://gis.stackexchange.com/questions/31951/how-to-show-a-popup-on-mouse-over-not-on-click has info on how to show a popup on mouseover instead
+    );
+    e.target.openPopup();
+}
+  */
+
+var overlayOptions = { 
+    onEachFeature: function (feature, layer) {
+        layer.on({
+          //click: whenClicked,
+        });
+        myFeaturesMap[feature.properties.GEOID] = layer;
+    },
+    // pointToLayer: function (feature, latlng) {
+//         return L.polygon(latlng, overlayStyles('green'));
+//     }
+};
 
 function addNewFeatureToGeoJsonLayerGroup(newGeoJsonData) {
     overlay.addData(newGeoJsonData);
@@ -55,19 +83,28 @@ function processBlockGroups(data) {
         updateTracts(data);
     } else {
       console.log('setup');
-      overlay = L.geoJson(data, {
-        onEachFeature: function (feature, layer) {
-            myFeaturesMap[feature.properties.GEOID] = layer;
-          }
-        }); 
+      overlay = L.geoJson(data, overlayOptions); 
       map.addLayer(overlay);
     }
 }
 
-function loadJSON (url, action='download') {
-  var request = new XMLHttpRequest();
+function dlcancelled(evt) {
+  //console.log("Previous request has been cancelled");
+  //We don't need to take any action at this point
+} 
 
+var request = null;
+
+function loadJSON (url, action='download') {
+  
+  if(request && request.readystate != 4){
+    request.abort();
+  }
+  
+  request = new XMLHttpRequest();
+                
   request.open('GET', url, true);
+  request.addEventListener("abort", dlcancelled, false);
   request.onload = function () {
 
     // Begin accessing JSON data here
