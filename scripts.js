@@ -10,26 +10,34 @@ function createGISquery (extent, count='false') {
 
 var myFeaturesMap = {};
 var currentRequest = 0;
+const defaultColor = '#3388ff';
+const selectedColor = 'red';
+var selectedFeatures = new Map();
 
-/*
-onEachFeature: function (feature, layer) {
-    myFeaturesMap[feature.properties.GEOID] = layer;
-  }
-          
-  //Updates the popup whenever a block group is clicked - not used
+var test = null;
+//When we click on a feature, we should update our list of selected features and make it stand out.
 function whenClicked(e) {
-    e.target.bindPopup(
-      '<b>Suitability: </b>' + e.target.feature.weightedValue.toFixed(2) + '<br />'
+    test = e;
+    if (selectedFeatures.get(e.target.feature.properties["GEOID"]) == 1) {
+      selectedFeatures.delete(e.target.feature.properties["GEOID"])
+      e.target.setStyle({fillColor: defaultColor});
+    } else {
+      selectedFeatures.set(e.target.feature.properties["GEOID"], 1);
+      e.target.setStyle({fillColor: selectedColor});
+    }
+    //console.log(selectedFeatures);
+//     e.target.bindPopup(
+//       '<b>Suitability: </b>' + e.target.feature.weightedValue.toFixed(2) + '<br />'
       // http://gis.stackexchange.com/questions/31951/how-to-show-a-popup-on-mouse-over-not-on-click has info on how to show a popup on mouseover instead
-    );
-    e.target.openPopup();
+//    );
+//    e.target.openPopup();
 }
-  */
+
 
 var overlayOptions = { 
     onEachFeature: function (feature, layer) {
         layer.on({
-          //click: whenClicked,
+          click: whenClicked,
         });
         myFeaturesMap[feature.properties.GEOID] = layer;
     },
